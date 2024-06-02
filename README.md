@@ -1,2 +1,3 @@
 # 这是探索性图形分析的代码
-## 请打开列表中的example.Rmd文件
+## 代码在example.Rmd文件中
+## 数据文件为TDRI_dataset.csv
