@@ -5,8 +5,6 @@
 ```{r}
 library(readr)
 df <- read_csv2("D:/Work during Doctor/network analysis/data/TDRI_dataset.csv", col_names = TRUE)
-## 数据集来源于演绎推理能力发展测验(IRDT, n = 1803)
-## IRDT具有7维度结构或者双因子结构(7个特殊因子和1个一般因子)
 
 df_EGA <- df[1:1000, ]
 df_CFA <- df[1001:1803, ]                        ## 拆分数据集
