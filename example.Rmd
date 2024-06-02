@@ -1,0 +1,76 @@
+# 这是一个探索性图形分析的示例
+
+## 第一步，准备数据
+
+```{r}
+library(readr)
+df <- read_csv2("D:/Work during Doctor/network analysis/data/TDRI_dataset.csv", col_names = TRUE)
+## 数据集来源于演绎推理能力发展测验(IRDT, n = 1803)
+## IRDT具有7维度结构或者双因子结构(7个特殊因子和1个一般因子)
+
+df_EGA <- df[1:1000, ]
+df_CFA <- df[1001:1803, ]                        ## 拆分数据集
+```
+
+## 第二步，执行EGA
+
+```{r}
+library(EGAnet)
+LCT <- LCT(df_EGA,
+           iter = 1000, 
+           seed = 123)                           ## 估计数据是否适合进行网络分析（optional）
+library(qgraph)
+ega <- EGA(df_EGA, plot.EGA = FALSE)             ## 对样本1执行EGA
+p1 <- qgraph(ega$network, 
+             layout = "spring", 
+             vsize = 4, 
+             groups = as.factor(ega$wc))         ## 结果可视化
+```
+
+## 第三步，测试维度维度的稳定性
+
+```{r}
+boot_ega <- bootEGA(df_EGA, 
+                    type = "resampling", 
+                    iter = 500)                     ## 重复取样500次
+boot_ega$summary.table                              ## 汇总表
+boot_ega$frequency                                  ## 维度频率
+item_stability <- itemStability(boot_ega)           ## 项目稳定性
+network_loading <- net.loads(boot_ega$EGA)          ## 网络载荷
+print(network_loading, minimum = 0.15)              ## 0.15小；0.25中等；0.35大
+```
+
+## 第四步，执行验证性因素分析
+
+```{r}
+library(lavaan)
+cfa_ega <- EGAnet::CFA(ega, 
+                       estimator = "WLSMV", 
+                       layout = "spring", 
+                       data = df_CFA)               ## 对样本2执行CFA
+fitMeasures(cfa_ega$fit, 
+            c("chisq", "df", "pvalue", 
+              "srmr","cfi","rmsea"))                ## 输出拟合指数（CFI ≥ 0.95, SRMR ≤ 0.08, and RMSEA ≤ 0.05）
+```
+
+## 第五步，与已有的基于理论的结构模型做比较
+
+```{r}
+seven_dimension <-  'Preop =~ i1+i2+i3+i4+i5+i6+i7+i8
+                     Prim =~ i9+i10+i11+i12+i13+i14+i15+i16
+                     Conc =~ i17+i18+i19+i20+i21+i22+i23+i24
+                     Abst =~ i25+i26+i27+i28+i29+i30+i31+i32
+                     Form =~ i33+i34+i35+i36+i37+i38+i39+i40
+                     Syst =~ i41+i42+i43+i44+i45+i46+i47+i48
+                     Meta =~ i49+i50+i51+i52+i53+i54+i55+i56'      ## 构建原始的7维度模型
+fit <- cfa(model = seven_dimension, 
+             estimator = "WLSMV", 
+             orthogonal = FALSE, 
+             se = "standard", 
+             test = "standard", 
+             data = df)                                            ## 对7维度模型进行CFA
+fitMeasures(fit, 
+            c("chisq","df","pvalue","srmr","cfi","rmsea"))         ## 输出拟合指数
+lavTestLRT(fit, cfa_ega, 
+           method="satorra.bentler.2010")                          ## 使用S-B方法对模型进行比较
+```
