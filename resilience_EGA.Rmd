@@ -1,0 +1,99 @@
+# 这是对心理韧性量表维度结构的的探索性图形分析
+
+## 第一步，准备数据
+```{r}
+library(tidyverse)
+library(EGAnet)
+library(qgraph)
+library(bruceR)
+library(lavaan)
+
+resilience <- import("sample.sav") %>% 
+  select(C1:C27) %>% 
+  drop_na()                                                      ## 导入数据并清洗
+
+resilience_EGA <- resilience[1:1700, ]
+resilience_CFA <- resilience[1700:3443, ]                        ## 拆分数据集
+
+```
+
+
+## 第二步，执行EGA
+```{r}
+
+LCT <- LCT(resilience_EGA,
+           iter = 1000, 
+           seed = 123)                                  
+LCT                                                              ## 估计数据是否适合进行网络分析（optional）
+
+EGA <- EGA(resilience_EGA, plot.EGA = TRUE)                      ## 执行EGA
+
+plot_EGA <- qgraph(
+  EGA$network,
+  layout = "spring",
+  vsize = 4,
+  groups = as.factor(EGA$wc) 
+)                                                                ## 调整图片
+```
+
+## 第三步，测试维度维度的稳定性
+
+```{r}
+boot_EGA <- bootEGA(resilience_EGA, 
+                    type = "resampling", 
+                    iter = 1000, 
+                    seed = 1234)                     ## 重复取样1000次
+
+boot_EGA$summary.table                               ## 汇总表
+
+boot_EGA$frequency                                   ## 维度频率
+
+itemStability(boot_EGA)                              ## 项目稳定性。大于0.65为较稳定
+                      
+net.loads(boot_EGA$EGA)                              ## 网络载荷
+
+print(net.loads(boot_EGA$EGA), minimum = 0.15)       ## 0.15小；0.25中等；0.35大
+```
+
+## 第四步，执行验证性因素分析
+
+```{r}
+cfa_EGA <- EGAnet::CFA(EGA, 
+                       estimator = "WLSMV", 
+                       layout = "spring", 
+                       data = resilience_CFA)        ## 对样本2执行CFA
+
+fitMeasures(cfa_EGA$fit, 
+            c("chisq", "df", "pvalue", 
+              "srmr","cfi","rmsea"))                 ## 输出拟合指数（CFI ≥ 0.95, SRMR ≤ 0.08, and RMSEA ≤ 0.05）
+```
+
+## 第五步，与已有的基于理论的结构模型做比较
+
+```{r}
+five_dimension <-  'goal =~ C3+C4+C11+C12+C24
+                    affe =~ C1+C2+C5+C21+C23+C27
+                    posi =~ C10+C13+C14+C25
+                    fami =~ C8+C15+C16+C17+C19+C22
+                    supp =~ C6+C7+C9+C12+C18+C26'                 ## 构建原始的5维度模型
+
+fit <- cfa(
+  model = five_dimension,
+  orthogonal = FALSE,
+  se = "standard",
+  test = "standard",
+  data = resilience_CFA
+)                                                                  ## 对原始5维度模型进行CFA
+
+fitMeasures(fit, 
+            c("chisq","df","pvalue","srmr","cfi","rmsea"))         ## 输出原始5维度结构的拟合指数
+
+fitMeasures(cfa_EGA$fit, 
+            c("chisq", "df", "pvalue", 
+              "srmr","cfi","rmsea"))   
+
+lavTestLRT(fit, cfa_EGA, 
+           method="satorra.bentler.2010")                          ## 使用S-B方法对模型进行比较(optional)
+```
+
+
